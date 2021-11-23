@@ -44,7 +44,58 @@ const runSalesBot = async () => {
       console.log('error fetching signatures', err);
       continue;
     }
-  }
 
-  //   for (let i = signatures.length - 1; i >= 0; i--)
+    for (let i = signatures.length - 1; i >= 0; i--) {
+      try {
+        let { signature } = signatures[i];
+        const txn = await solanaConnection.getTransaction(signature);
+        if (txn.meta && txn.meta.err != null) {
+          continue;
+        }
+
+        const dateString = new Date(txn.blockTime * 1000).toLocaleString();
+        const price =
+          Math.abs(txn.meta.preBalances[0] - txn.meta.postBalances[0]) /
+          solanaWeb3.LAMPORTS_PER_SOL;
+        const accounts = txn.transaction.message.accountKeys;
+        const marketplaceAccount = accounts[accounts.length - 1].toString();
+
+        if (marketplaceMap[marketplaceAccount]) {
+          const metadata = await getMetadata(
+            txn.meta.postTokenBalances[0].mint
+          );
+          if (!metadata) {
+            console.log('couldnt get metadata');
+            continue;
+          }
+
+          printSalesInfo(
+            dateString,
+            price,
+            signature,
+            metadata.name,
+            marketplaceMap[marketplaceAccount],
+            metadata.image
+          );
+          await postSaleToDiscord(
+            metadata.name,
+            price,
+            dateString,
+            signature,
+            metadata.image
+          );
+        } else {
+          console.log('not a supported marketplace sale');
+        }
+      } catch (err) {
+        console.log('error while going through signatures: ', err);
+        continue;
+      }
+    }
+
+    lastKnownSignature = signatures[0].signature;
+    if (lastKnownSignature) {
+      options.until = lastKnownSignature;
+    }
+  }
 };
