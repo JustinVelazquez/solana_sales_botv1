@@ -1,6 +1,7 @@
 const solanaWeb3 = require('@solana/web3.js');
 const { Connection, programs } = require('@metaplex/js');
 const axios = require('axios');
+const { Metadata } = require('@metaplex/js/lib/programs/metadata');
 
 if (!process.env.PROJECT_ADDRESS || !process.env.DISCORD_URL) {
   console.log('Please Set your Env variables!');
@@ -97,5 +98,17 @@ const runSalesBot = async () => {
     if (lastKnownSignature) {
       options.until = lastKnownSignature;
     }
+  }
+};
+const timer = (ms) => new Promise((res) => setTimeout(res, ms));
+
+const getMetadata = async (tokenPubKey) => {
+  try {
+    const addr = await Metadata.getPDA(tokenPubKey);
+    const resp = await Metadata.load(metaplexConnection, addr);
+    const { data } = await axios.get(resp.data.data.uri);
+    return data;
+  } catch (err) {
+    console.log('error fetching metadata: ', err);
   }
 };
